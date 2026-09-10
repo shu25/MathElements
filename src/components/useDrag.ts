@@ -123,7 +123,10 @@ export function useDrag(stage: RefObject<HTMLDivElement | null>) {
         }
       }
       const next = { ...d, node, x, y, moved };
-      const target = findDropTarget(element, next, e.clientX, e.clientY, dropRef.current);
+      const target =
+        useGameStore.getState().moveOnly || e.altKey
+          ? null
+          : findDropTarget(element, next, e.clientX, e.clientY, dropRef.current);
       dropRef.current = target;
       setDrop(target);
       update(next);
@@ -203,6 +206,10 @@ export function useDrag(stage: RefObject<HTMLDivElement | null>) {
       const node = getPart(o.node, path);
       if (!node) return;
       const state = useGameStore.getState();
+      if (state.moveOnly || e.altKey) {
+        begin(e, o.node, o);
+        return;
+      }
       if (state.selected === o.id && encodePath(state.selectedPart ?? []) === encodePath(path))
         begin(e, node, o, undefined, undefined, path);
       else {

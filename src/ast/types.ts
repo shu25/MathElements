@@ -78,7 +78,19 @@ export interface MatrixNode {
   values: Matrix2;
 }
 export type Quantity =
-  'mass' | 'force' | 'velocity' | 'acceleration' | 'gravity' | 'time' | 'distance';
+  | 'mass'
+  | 'force'
+  | 'velocity'
+  | 'acceleration'
+  | 'gravity'
+  | 'time'
+  | 'distance'
+  | 'friction'
+  | 'drag'
+  | 'lift'
+  | 'buoyancy'
+  | 'wind'
+  | 'bounce';
 export interface PhysicsQuantityNode {
   kind: 'quantity';
   quantity: Quantity;
@@ -257,9 +269,21 @@ export function isExpression(value: unknown, depth = 0): value is Expression {
       );
     case 'quantity':
       return (
-        ['mass', 'force', 'velocity', 'acceleration', 'gravity', 'time', 'distance'].includes(
-          String(n.quantity),
-        ) &&
+        [
+          'mass',
+          'force',
+          'velocity',
+          'acceleration',
+          'gravity',
+          'time',
+          'distance',
+          'friction',
+          'drag',
+          'lift',
+          'buoyancy',
+          'wind',
+          'bounce',
+        ].includes(String(n.quantity)) &&
         finite(n.value) &&
         finite(n.angle)
       );

@@ -64,6 +64,59 @@ export function Inspector({
           <Icon name="close" size={14} />
         </button>
       </div>
+      <div className="object-tools">
+        <button onClick={() => actions.duplicate(object.id, bounds)}>複製</button>
+        <button
+          aria-pressed={actions.moveOnly}
+          onClick={() => actions.setMoveOnly(!actions.moveOnly)}
+        >
+          移動{actions.moveOnly ? '中' : ''}
+        </button>
+        <button onClick={() => actions.rotateObject(object.id, 15)}>回転 +15°</button>
+      </div>
+      <details className="transform-properties">
+        <summary>位置・回転</summary>
+        <NumberField
+          label="位置 X"
+          value={Math.round(object.x)}
+          min={24}
+          max={bounds.width - 24}
+          unit="px"
+          onChange={(x) => actions.moveObject(object.id, x, object.y, bounds)}
+        />
+        <NumberField
+          label="位置 Y"
+          value={Math.round(object.y)}
+          min={24}
+          max={bounds.height - 24}
+          unit="px"
+          onChange={(y) => actions.moveObject(object.id, object.x, y, bounds)}
+        />
+        <NumberField
+          label="回転"
+          value={
+            node.kind === 'vector'
+              ? (Math.atan2(node.y, node.x) * 180) / Math.PI
+              : (object.rotation ?? 0)
+          }
+          min={-180}
+          max={360}
+          unit="°"
+          onChange={(angle) =>
+            actions.rotateObject(
+              object.id,
+              angle -
+                (node.kind === 'vector'
+                  ? (Math.atan2(node.y, node.x) * 180) / Math.PI
+                  : (object.rotation ?? 0)),
+            )
+          }
+        />
+        <p className="inspector-hint">
+          移動モードでは重ねても合成しません。矢印キーで移動、R で回転、Ctrl+D
+          で複製。物体の回転は見た目の向きです。
+        </p>
+      </details>
       {exponent && node.kind === 'power' ? (
         <>
           <div className="inspector-formula">
@@ -160,14 +213,24 @@ export function Inspector({
                       gravity: 'm/s²',
                       time: 's',
                       distance: 'm',
+                      buoyancy: 'm³',
+                      wind: 'm/s',
                     } as Record<string, string>
                   )[node.quantity]
                 }
-                min={node.quantity === 'force' || node.quantity === 'acceleration' ? -1000 : 0}
-                step={0.1}
+                min={['force', 'acceleration', 'lift'].includes(node.quantity) ? -1000 : 0}
+                max={
+                  (
+                    { friction: 2, drag: 5, lift: 5, buoyancy: 10, wind: 100, bounce: 1 } as Record<
+                      string,
+                      number
+                    >
+                  )[node.quantity] ?? 1000
+                }
+                step={node.quantity === 'buoyancy' ? 0.001 : 0.1}
                 onChange={(value) => update({ ...node, value })}
               />
-              {['force', 'velocity', 'acceleration'].includes(node.quantity) && (
+              {['force', 'velocity', 'acceleration', 'wind'].includes(node.quantity) && (
                 <NumberField
                   label="方向"
                   value={node.angle}
@@ -236,9 +299,6 @@ export function Inspector({
         </>
       )}
       <div className="inspector-footer">
-        <button aria-label="複製" title="複製" onClick={() => actions.duplicate(object.id, bounds)}>
-          <Icon name="copy" size={15} />
-        </button>
         <button aria-label="削除" title="削除 · Delete" onClick={() => actions.remove(object.id)}>
           <Icon name="trash" size={15} />
         </button>

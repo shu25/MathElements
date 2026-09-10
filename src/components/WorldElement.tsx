@@ -41,7 +41,11 @@ export function WorldElement({
   return (
     <div
       className={`world-element ${node.kind === 'vector' ? 'is-vector' : ''} ${object.body ? 'is-body' : ''} ${selected ? 'selected' : ''} ${magnetic ? 'magnetic' : ''} ${dragging ? 'dragging' : ''} ${busy ? 'reacting' : ''}`}
-      style={{ left: object.x, top: object.y }}
+      style={{
+        left: object.x,
+        top: object.y,
+        rotate: object.rotation ? `${-object.rotation}deg` : undefined,
+      }}
       data-object-id={object.id}
       data-kind={object.node.kind}
       data-testid="world-element"

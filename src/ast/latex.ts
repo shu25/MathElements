@@ -74,6 +74,12 @@ export function toLatex(n: Expression): string {
         gravity: 'g',
         time: 't',
         distance: 's',
+        friction: '\\mu',
+        drag: 'C_D',
+        lift: 'C_L',
+        buoyancy: 'F_B',
+        wind: '\\vec{w}',
+        bounce: 'e_r',
       }[n.quantity];
   }
 }

@@ -381,7 +381,7 @@ button:hover:not(:disabled) {
 }
 .world-element {
   position: absolute;
-  transform: translate(-50%, -50%);
+  translate: -50% -50%;
   padding: 14px 17px;
   min-width: 49px;
   min-height: 53px;
@@ -464,6 +464,7 @@ button:hover:not(:disabled) {
   background: #272727;
 }
 .world-element.is-vector {
+  translate: none;
   width: 1px;
   height: 1px;
   min-width: 0;
@@ -1701,4 +1702,245 @@ kbd {
 }
 .part-list .math-text {
   font-size: 17px;
+}
+
+/* Left-hand library keeps the full workspace height available for experiments. */
+.workbench {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.workbench .workspace {
+  min-width: 0;
+  min-height: 0;
+}
+.workbench .element-tray {
+  width: 220px;
+  height: auto;
+  flex: 0 0 220px;
+  display: flex;
+  flex-direction: column;
+  border-top: 0;
+  border-right: 1px solid #2d2d2d;
+  min-height: 0;
+}
+.workbench .tray-heading {
+  height: auto;
+  padding: 22px 16px 12px;
+}
+.workbench .tray-heading > div {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  width: 100%;
+}
+.workbench .tray-heading > .tray-caption {
+  display: none;
+}
+.workbench .tray-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px 10px;
+  width: 100%;
+}
+.workbench .tray-tabs button {
+  min-height: 34px;
+  text-align: left;
+}
+.workbench .tray-rail {
+  flex: 1;
+  height: auto;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  align-items: stretch;
+  gap: 8px;
+  padding: 12px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.workbench .tray-element {
+  min-width: 0;
+  height: 68px;
+  padding: 8px 4px;
+  border: 1px solid #222;
+  font-size: 23px;
+}
+.workbench .physics-tray-element {
+  height: 80px;
+}
+.workbench .tray-footnote {
+  padding: 16px;
+  font-size: 9px;
+  line-height: 1.8;
+}
+.workbench .tray-footnote > span:last-child {
+  display: none;
+}
+.object-tools {
+  display: flex;
+  gap: 5px;
+  margin: 10px 0;
+}
+.object-tools button {
+  border: 1px solid #444;
+  padding: 10px 8px;
+  font-size: 11px;
+  flex: 1;
+  white-space: nowrap;
+}
+.object-tools button[aria-pressed='true'] {
+  background: #eee;
+  color: #111;
+}
+.transform-properties,
+.physics-properties {
+  border-block: 1px solid #292929;
+  padding: 10px 0;
+  margin: 8px 0;
+}
+.transform-properties summary,
+.physics-properties summary {
+  font-size: 11px;
+  cursor: pointer;
+  padding: 6px 0;
+  color: #bbb;
+}
+.force-readouts {
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+  padding: 10px 0;
+}
+.force-readouts > span:not(.math-text) {
+  font-size: 10px;
+  color: #aaa;
+}
+.move-mode-banner {
+  position: absolute;
+  top: 58px;
+  left: 32px;
+  z-index: 35;
+  background: #ddd;
+  color: #111;
+  padding: 9px 12px;
+  font-size: 11px;
+}
+.move-mode-banner span {
+  margin-left: 16px;
+}
+.move-only .world-element,
+.move-only .interactive-math [data-node-path] {
+  cursor: move;
+}
+.body-dot::after {
+  content: '';
+  position: absolute;
+  width: 13px;
+  height: 2px;
+  background: #eee;
+  left: 28px;
+  top: 14px;
+}
+.fluid-force-indicator line {
+  stroke: #aaa;
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+.fluid-force-indicator circle {
+  fill: #ddd;
+}
+.fluid-force-indicator text {
+  fill: #bbb;
+  font-size: 10px;
+}
+.tray-scroll-actions {
+  display: flex;
+  border-top: 1px solid #252525;
+}
+.tray-scroll-actions button {
+  flex: 1;
+  padding: 12px 2px;
+  min-height: 40px;
+  font-size: 10px;
+  color: #aaa;
+}
+.experiments-popover {
+  max-height: calc(100% - 105px);
+  overflow-y: auto;
+}
+@media (max-width: 900px) {
+  .workbench .element-tray {
+    width: 160px;
+    flex-basis: 160px;
+  }
+  .workbench .tray-heading {
+    padding: 16px 10px 8px;
+  }
+  .workbench .tray-rail {
+    padding: 8px;
+    gap: 5px;
+  }
+  .workbench .tray-caption {
+    font-size: 7px;
+    letter-spacing: 0;
+  }
+}
+@media (max-width: 600px) {
+  .workbench .element-tray {
+    width: 94px;
+    flex-basis: 94px;
+  }
+  .workbench .tray-tabs {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .workbench .tray-tabs button {
+    font-size: 9px;
+    min-height: 30px;
+  }
+  .workbench .tray-rail {
+    grid-template-columns: 1fr;
+  }
+  .workbench .tray-element {
+    height: 58px;
+    font-size: 21px;
+  }
+  .workbench .physics-tray-element {
+    height: 70px;
+  }
+  .workbench .tray-footnote {
+    display: none;
+  }
+  .workbench .tray-caption {
+    display: none;
+  }
+  .workbench .inspector {
+    right: 10px;
+    width: min(226px, calc(100% - 20px));
+  }
+  .workbench .workspace-topline {
+    left: 10px;
+    right: 8px;
+    gap: 5px;
+    flex-wrap: wrap;
+    height: auto;
+  }
+  .workbench .workspace-tools {
+    margin-left: auto;
+  }
+  .workbench .workspace-status {
+    left: 10px;
+    font-size: 6px;
+  }
+  .workbench .simulation-controls {
+    left: 12px;
+    gap: 8px;
+  }
+  .move-mode-banner {
+    left: 10px;
+    top: 85px;
+    font-size: 9px;
+  }
 }

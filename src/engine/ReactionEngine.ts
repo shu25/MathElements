@@ -95,7 +95,19 @@ const builtInRules: ReactionRule[] = [
         a.kind === 'quantity' &&
         a.quantity === 'mass' &&
         b.kind === 'quantity' &&
-        ['mass', 'force', 'velocity', 'acceleration', 'gravity'].includes(b.quantity),
+        [
+          'mass',
+          'force',
+          'velocity',
+          'acceleration',
+          'gravity',
+          'friction',
+          'drag',
+          'lift',
+          'buoyancy',
+          'wind',
+          'bounce',
+        ].includes(b.quantity),
       ),
     react: (a, b) =>
       b.kind === 'quantity'

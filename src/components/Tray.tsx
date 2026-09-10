@@ -87,6 +87,12 @@ const physics: TrayElement[] = [
     label: 'acceleration · 加速度 2 m/s²',
   },
   { key: 'gravity', node: quantity('gravity', 9.81), label: 'gravity · 重力 9.81 m/s²' },
+  { key: 'friction', node: quantity('friction', 0.3), label: '摩擦 · 摩擦係数 0.3' },
+  { key: 'drag', node: quantity('drag', 0.47), label: '空気抵抗 · 抵抗係数 0.47' },
+  { key: 'lift', node: quantity('lift', 0.6), label: '揚力 · 揚力係数 0.6' },
+  { key: 'buoyancy', node: quantity('buoyancy', 0.002), label: '浮力 · 水中の体積 0.002 m³' },
+  { key: 'wind', node: quantity('wind', 5), label: '風 · 風速 5 m/s' },
+  { key: 'bounce', node: quantity('bounce', 0.7), label: '反発 · 反発係数 0.7' },
   { key: 'time', node: quantity('time', 1), label: 'time · 時間のものさし' },
   { key: 'distance', node: quantity('distance', 10), label: 'distance · 距離のものさし' },
 ];
@@ -114,7 +120,7 @@ export function Tray({ onDrag }: { onDrag: (event: PointerEvent, item: TrayEleme
       .map((key) => all.find((i) => i.key === key)!)
       .filter(Boolean);
   return (
-    <footer className="element-tray">
+    <aside className="element-tray" aria-label="アイテム欄">
       <div className="tray-heading flex items-center justify-between">
         <div className="flex items-center gap-7">
           <span className="eyebrow">ELEMENTS</span>
@@ -126,7 +132,7 @@ export function Tray({ onDrag }: { onDrag: (event: PointerEvent, item: TrayEleme
                   className={category === c.id ? 'active' : ''}
                   onClick={() => {
                     setCategory(c.id);
-                    rail.current?.scrollTo({ left: 0 });
+                    rail.current?.scrollTo({ top: 0 });
                   }}
                 >
                   {c.label}
@@ -140,14 +146,7 @@ export function Tray({ onDrag }: { onDrag: (event: PointerEvent, item: TrayEleme
           DRAG TO DISCOVER <span className="ml-3">↗</span>
         </span>
       </div>
-      <div
-        className="tray-rail"
-        ref={rail}
-        onWheel={(e) => {
-          if (rail.current && Math.abs(e.deltaY) > Math.abs(e.deltaX))
-            rail.current.scrollLeft += e.deltaY;
-        }}
-      >
+      <div className="tray-rail" ref={rail}>
         {items.map((item) => (
           <button
             key={item.key}
@@ -173,7 +172,29 @@ export function Tray({ onDrag }: { onDrag: (event: PointerEvent, item: TrayEleme
             }}
           >
             <MathText node={item.node} />
-            {domain === 'physics' && <span className="quantity-label">{item.key}</span>}
+            {domain === 'physics' && (
+              <span className="quantity-label">
+                {
+                  (
+                    {
+                      mass: '物体',
+                      force: '力',
+                      velocity: '初速',
+                      acceleration: '加速度',
+                      gravity: '重力',
+                      friction: '摩擦',
+                      drag: '空気抵抗',
+                      lift: '揚力',
+                      buoyancy: '浮力',
+                      wind: '風',
+                      bounce: '反発',
+                      time: '時間',
+                      distance: '距離',
+                    } as Record<string, string>
+                  )[item.key]
+                }
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -185,6 +206,20 @@ export function Tray({ onDrag }: { onDrag: (event: PointerEvent, item: TrayEleme
           <span className="shortcut-separator">/</span> 分解
         </span>
       </div>
-    </footer>
+      <div className="tray-scroll-actions">
+        <button
+          aria-label="アイテム欄を上へスクロール"
+          onClick={() => rail.current?.scrollBy({ top: -200, behavior: 'smooth' })}
+        >
+          ↑ 上へ
+        </button>
+        <button
+          aria-label="アイテム欄を下へスクロール"
+          onClick={() => rail.current?.scrollBy({ top: 200, behavior: 'smooth' })}
+        >
+          ↓ 下へ
+        </button>
+      </div>
+    </aside>
   );
 }

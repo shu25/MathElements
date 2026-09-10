@@ -6,6 +6,7 @@ export interface WorldObject {
   node: Expression;
   x: number;
   y: number;
+  rotation?: number;
   body?: BodyConfig;
   vectorParts?: [VectorNode, VectorNode];
 }

@@ -37,6 +37,10 @@ export function isScene(value: unknown): value is Scene {
       Number.isFinite(p.y) &&
       Math.abs(p.y) <= 1_000_000 &&
       isExpression(p.node) &&
+      (p.rotation === undefined ||
+        (typeof p.rotation === 'number' &&
+          Number.isFinite(p.rotation) &&
+          Math.abs(p.rotation) <= 360)) &&
       (p.body === undefined ||
         (isBody(p.body) &&
           p.node.kind === 'quantity' &&

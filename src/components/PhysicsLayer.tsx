@@ -1,6 +1,6 @@
 import type { WorldObject } from '../store/types';
 import type { MotionState } from '../physics/model';
-import { motionAt } from '../physics/model';
+import { motionAt, fluidForces } from '../physics/model';
 import { PHYSICS_SCALE } from '../utils/layout';
 
 export function PhysicsLayer({
@@ -28,6 +28,7 @@ export function PhysicsLayer({
         if (!o.body) return null;
         const groundY = (o.y - (height - 65)) / PHYSICS_SCALE;
         const m = motions[o.id] ?? motionAt(o.body, 0, groundY);
+        const f = fluidForces(o.body, m.vx, m.vy);
         const count = Math.min(180, Math.max(2, Math.ceil(m.time * 40)));
         const points = Array.from({ length: count }, (_, i) => {
           const p = motionAt(o.body!, (m.time * i) / (count - 1), groundY);
@@ -35,6 +36,29 @@ export function PhysicsLayer({
         }).join(' ');
         return (
           <g key={o.id}>
+            {selected === o.id &&
+              (
+                [
+                  ['抵抗', f.dragX, f.dragY],
+                  ['揚力', f.liftX, f.liftY],
+                  ['浮力', 0, f.buoyancy],
+                ] as const
+              ).map(([label, fx, fy]) => {
+                const magnitude = Math.hypot(fx, fy);
+                if (magnitude < 0.001) return null;
+                const scale = Math.min(7, 120 / magnitude),
+                  x = o.x + m.x * PHYSICS_SCALE,
+                  y = o.y - m.y * PHYSICS_SCALE;
+                return (
+                  <g key={label} className="fluid-force-indicator">
+                    <line x1={x} y1={y} x2={x + fx * scale} y2={y - fy * scale} />
+                    <circle cx={x + fx * scale} cy={y - fy * scale} r="3" />
+                    <text x={x + fx * scale + 7} y={y - fy * scale - 7}>
+                      {label}
+                    </text>
+                  </g>
+                );
+              })}
             {trails && m.time > 0 && <polyline className="trajectory" points={points} />}
             {selected === o.id && (o.body.forceX !== 0 || o.body.forceY !== 0) && (
               <g className="force-indicator">

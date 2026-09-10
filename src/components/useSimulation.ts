@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useGameStore } from '../store/useGameStore';
-import { motionAt } from '../physics/model';
+import { motionAt, SIMULATION_DURATION } from '../physics/model';
 
 export function useSimulation(height: number) {
   const running = useGameStore((s) => s.running),
@@ -20,6 +20,13 @@ export function useSimulation(height: number) {
     const tick = (now: number) => {
       // Cap large frame gaps: changing browser tabs must not teleport a projectile.
       timeRef.current += Math.min((now - previous) / 1000, 0.05);
+      timeRef.current = Math.min(timeRef.current, SIMULATION_DURATION);
+      if (timeRef.current >= SIMULATION_DURATION) {
+        setTime(SIMULATION_DURATION);
+        useGameStore.setState({ running: false });
+        useGameStore.getState().setNotice('120 秒に到達しました。リセットして再実行できます。');
+        return;
+      }
       previous = now;
       if (now - lastPaint >= 25) {
         setTime(timeRef.current);

@@ -13,7 +13,7 @@ import {
   type Expression,
 } from '../ast/types';
 import { useGameStore } from '../store/useGameStore';
-import { defaultBody } from '../physics/model';
+import { defaultBody, type BodyConfig } from '../physics/model';
 import { uid, type Bounds } from '../utils/layout';
 import { MathText } from './MathText';
 import { Icon } from './Icon';
@@ -24,6 +24,8 @@ const experiments: {
   formula: string;
   nodes: Expression[];
   physics?: boolean;
+  body?: Partial<BodyConfig>;
+  releaseHeight?: number;
   grid?: boolean;
 }[] = [
   {
@@ -64,6 +66,42 @@ const experiments: {
     nodes: [quantity('mass')],
     physics: true,
   },
+  {
+    label: '摩擦で止まる',
+    formula: 'F_f=\\mu N',
+    nodes: [quantity('mass')],
+    physics: true,
+    body: { speed: 12, angle: 0, friction: 0.3 },
+  },
+  {
+    label: '空気抵抗で減速する',
+    formula: 'D=\\tfrac12\\rho C_D A v^2',
+    nodes: [quantity('mass')],
+    physics: true,
+    body: { drag: 0.47 },
+  },
+  {
+    label: '揚力で浮き上がる',
+    formula: 'L=\\tfrac12\\rho C_L A v^2',
+    nodes: [quantity('mass')],
+    physics: true,
+    body: { speed: 20, angle: 0, lift: 0.6, drag: 0.05 },
+  },
+  {
+    label: '浮力で上昇する',
+    formula: 'F_B=\\rho g V',
+    nodes: [quantity('mass')],
+    physics: true,
+    body: { speed: 0, displacedVolume: 0.002, density: 1000, drag: 0.47, area: 0.005 },
+  },
+  {
+    label: '床で跳ね返る',
+    formula: 'v_y^+=-e_r v_y^-',
+    nodes: [quantity('mass')],
+    physics: true,
+    releaseHeight: 160,
+    body: { speed: 0, restitution: 0.8 },
+  },
 ];
 export function Experiments({ bounds, onClose }: { bounds: Bounds; onClose: () => void }) {
   const launch = (index: number) => {
@@ -76,8 +114,10 @@ export function Experiments({ bounds, onClose }: { bounds: Bounds; onClose: () =
       id: uid(),
       node: structuredClone(node),
       x: e.physics ? 120 : bounds.width * 0.42 + (i - (e.nodes.length - 1) / 2) * 180,
-      y: e.physics ? bounds.height - 65 : bounds.height * 0.53,
-      ...(e.physics ? { body: { ...defaultBody(), speed: 20, angle: 45, gravity: 9.81 } } : {}),
+      y: e.physics ? bounds.height - 65 - (e.releaseHeight ?? 0) : bounds.height * 0.53,
+      ...(e.physics
+        ? { body: { ...defaultBody(), speed: 20, angle: 45, gravity: 9.81, ...e.body } }
+        : {}),
     }));
     current.commit({ grid: e.grid ? matrix() : null, objects }, null);
     current.resetSimulation();

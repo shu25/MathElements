@@ -49,7 +49,40 @@ export function Workspace() {
     const keyboard = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement)?.closest('input,textarea,[contenteditable="true"]')) return;
       const s = useGameStore.getState();
+      const selectedObject = s.scene.objects.find((o) => o.id === s.selected);
+      const rect = stage.current?.getBoundingClientRect();
+      if (selectedObject && rect && !(e.target as HTMLElement)?.closest('button')) {
+        const b = { width: rect.width, height: rect.height };
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
+          e.preventDefault();
+          s.duplicate(selectedObject.id, b);
+          return;
+        }
+        if (!e.ctrlKey && !e.metaKey && e.key.toLowerCase() === 'r') {
+          e.preventDefault();
+          s.rotateObject(selectedObject.id, e.shiftKey ? -15 : 15);
+          return;
+        }
+        const delta = (
+          { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] } as Record<
+            string,
+            number[]
+          >
+        )[e.key];
+        if (delta) {
+          e.preventDefault();
+          const step = e.shiftKey ? 10 : 1;
+          s.moveObject(
+            selectedObject.id,
+            Math.max(24, Math.min(b.width - 24, selectedObject.x + delta[0] * step)),
+            Math.max(24, Math.min(b.height - 24, selectedObject.y + delta[1] * step)),
+            b,
+          );
+          return;
+        }
+      }
       if (e.key === 'Escape') {
+        s.setMoveOnly(false);
         s.select(null);
         setMenu(null);
         setHelp(false);
@@ -82,270 +115,284 @@ export function Workspace() {
   return (
     <>
       <AppHeader bounds={bounds} />
-      <main
-        className="workspace"
-        ref={stage}
-        data-testid="workspace"
-        onPointerDown={(e) => {
-          if (e.target === e.currentTarget) {
-            state.select(null);
-            setMenu(null);
-            setExperiments(false);
-          }
-        }}
-        onContextMenu={(e) => {
-          if (e.target === e.currentTarget) e.preventDefault();
-        }}
-      >
-        <WorkspaceToolbar
-          cancel={cancel}
-          experiments={experiments}
-          onExperiments={() => setExperiments(!experiments)}
-          onHelp={() => setHelp(true)}
-        />
-        {state.mode === 'challenges' && <ChallengePanel bounds={bounds} />}
-        {state.mode === 'sandbox' && state.domain === 'math' && !state.tutorialComplete && (
-          <Tutorial />
-        )}
-        {!state.scene.objects.length && !state.scene.grid && state.mode === 'sandbox' && (
-          <EmptyWorkspace physics={state.domain === 'physics'} tutorial={!state.tutorialComplete} />
-        )}
-        {state.scene.grid && <Grid matrix={state.scene.grid} highlighted={target === '__grid'} />}
-        {state.domain === 'physics' && (
-          <PhysicsLayer
-            objects={state.scene.objects}
-            motions={motions}
-            trails={state.settings.trails}
-            challenge={state.mode === 'challenges' && state.activeChallenge === 10}
-            height={bounds.height}
-            selected={state.selected}
+      <div className={`workbench ${state.moveOnly ? 'move-only' : ''}`}>
+        <Tray onDrag={startTray} />
+        <main
+          className="workspace"
+          ref={stage}
+          data-testid="workspace"
+          onPointerDown={(e) => {
+            if (e.target === e.currentTarget) {
+              state.select(null);
+              setMenu(null);
+              setExperiments(false);
+            }
+          }}
+          onContextMenu={(e) => {
+            if (e.target === e.currentTarget) e.preventDefault();
+          }}
+        >
+          <WorkspaceToolbar
+            cancel={cancel}
+            experiments={experiments}
+            onExperiments={() => setExperiments(!experiments)}
+            onHelp={() => setHelp(true)}
           />
-        )}
-        <div className="workspace-crosshair corner-tl" />
-        <div className="workspace-crosshair corner-br" />
-        {state.scene.objects.map((object) => {
-          const d = drag?.sourceId === object.id && !drag.sourcePath && drag.moved ? drag : null;
-          const motion = object.body ? motions[object.id] : null;
-          const positioned = d
-            ? { ...object, x: d.x, y: d.y, node: d.node }
-            : motion
-              ? {
-                  ...object,
-                  x: object.x + motion.x * PHYSICS_SCALE,
-                  y: object.y - motion.y * PHYSICS_SCALE,
-                }
-              : object;
-          return (
-            <WorldElement
-              key={object.id}
-              object={positioned}
-              selected={state.selected === object.id}
-              magnetic={target === object.id}
-              dragging={Boolean(d)}
-              displayNode={state.transitions[object.id]?.node}
-              busy={Boolean(state.transitions[object.id])}
-              selectedPart={
-                state.selected === object.id ? encodePath(state.selectedPart ?? []) : undefined
-              }
-              targetPart={drop?.id === object.id ? encodePath(drop.path) : undefined}
-              onPartPointerDown={(e, path) => {
-                setMenu(null);
-                setExponent(null);
-                startPart(e, object, path);
-              }}
-              onPointerDown={(e) => {
-                setMenu(null);
-                setExponent(null);
-                startObject(e, object.body ? positioned : object);
-              }}
-              onDoubleClick={() => state.simplifyObject(object.id)}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                state.select(object.id);
-                const partPath = decodePath(
-                  (e.target as Element)
-                    .closest('[data-node-path]')
-                    ?.getAttribute('data-node-path') ?? null,
-                );
-                if (partPath.length) state.selectPart(object.id, partPath);
-                const r = stage.current!.getBoundingClientRect();
-                setMenu({
-                  id: object.id,
-                  x: Math.max(12, Math.min(bounds.width - 210, e.clientX - r.left)),
-                  y: Math.max(55, Math.min(bounds.height - 210, e.clientY - r.top)),
-                });
-              }}
-              onEndpoint={(e, endpoint) => startEndpoint(e, object, endpoint)}
-              onExponent={() => {
-                state.select(object.id);
-                setExponent(object.id);
-              }}
-            />
-          );
-        })}
-        {state.domain === 'physics' &&
-          state.scene.objects
-            .filter(
-              (o) => o.node.kind === 'quantity' && ['time', 'distance'].includes(o.node.quantity),
-            )
-            .map((o) => (
-              <div key={o.id} className="physics-measurement" style={{ left: o.x, top: o.y + 32 }}>
-                {o.node.kind === 'quantity' && o.node.quantity === 'time' ? (
-                  `${time.toFixed(2)} s`
-                ) : (
-                  <>
-                    <span
-                      className="distance-ruler"
-                      style={{
-                        width:
-                          o.node.kind === 'quantity'
-                            ? Math.max(20, o.node.value * PHYSICS_SCALE)
-                            : 100,
-                      }}
-                    />
-                    {o.node.kind === 'quantity' ? o.node.value : 10} m
-                  </>
-                )}
-              </div>
-            ))}
-        {drag && (!drag.sourceId || drag.sourcePath) && drag.moved && (
-          <WorldElement
-            object={{ id: 'drag-preview', node: drag.node, x: drag.x, y: drag.y }}
-            selected={false}
-            dragging
-            onPointerDown={() => {}}
-            onDoubleClick={() => {}}
-            onContextMenu={() => {}}
-          />
-        )}
-        {selected && !drag?.moved && (
-          <Inspector
-            key={selected.id}
-            object={selected}
-            motion={motions[selected.id]}
-            exponent={exponent === selected.id}
-            onCloseExponent={() => setExponent(null)}
-            bounds={bounds}
-          />
-        )}
-        {drag?.moved && drop && (
-          <div className="drop-preview" role="status">
-            <span>{drop.label}</span>
-            {drop.reaction && <MathText node={drop.reaction.result} />}
-            <small>離すと確定</small>
-          </div>
-        )}
-        {state.domain === 'physics' && (
-          <div className="simulation-controls">
-            <button
-              aria-label={state.running ? '一時停止' : '再生'}
-              className="simulation-play"
-              disabled={!state.scene.objects.some((o) => o.body)}
-              onClick={state.toggleRunning}
-            >
-              <Icon name={state.running ? 'pause' : 'play'} size={17} />
-              {state.running ? 'Pause' : 'Run'}
+          {state.moveOnly && (
+            <button className="move-mode-banner" onClick={() => state.setMoveOnly(false)}>
+              移動モード · 合成しない <span>終了 ×</span>
             </button>
-            {toolbarButton('reset', 'シミュレーションをリセット', state.resetSimulation)}
-            <span className="simulation-time">
-              {time.toFixed(2)} <small>s</small>
-            </span>
-            <button
-              className={`trail-toggle ${state.settings.trails ? 'active' : ''}`}
-              onClick={() => state.setSettings({ trails: !state.settings.trails })}
-            >
-              <span />
-              軌跡
-            </button>
-          </div>
-        )}
-        <div className="workspace-status">
-          <span className="status-dot" />
-          <span>{String(state.scene.objects.length).padStart(2, '0')} ELEMENTS</span>
-          <span className="status-divider">/</span>
-          <span>{state.storageError ? '保存できません' : 'LOCAL · AUTOSAVED'}</span>
-        </div>
-        <div className="sound-control">
-          {toolbarButton(
-            state.settings.muted ? 'muted' : 'sound',
-            state.settings.muted ? 'サウンドをオン' : 'ミュート',
-            () => state.setSettings({ muted: !state.settings.muted }),
           )}
-        </div>
-        {state.notice && (
-          <div className="reaction-notice" role="status">
-            {state.notice}
-          </div>
-        )}
-        {menu && (
-          <div
-            className="context-menu"
-            role="menu"
-            style={{ left: menu.x, top: menu.y }}
-            onPointerDown={(e) => e.stopPropagation()}
-          >
-            {state.selected === menu.id && state.selectedPart?.length ? (
-              <>
-                <button
-                  role="menuitem"
-                  onClick={() => {
-                    state.extractPart(menu.id, state.selectedPart!, bounds);
-                    setMenu(null);
-                  }}
-                >
-                  <Icon name="arrow" size={15} />
-                  中身を取り出す
-                </button>
-                <button
-                  role="menuitem"
-                  onClick={() => {
-                    state.extractPart(menu.id, state.selectedPart!, bounds, undefined, true);
-                    setMenu(null);
-                  }}
-                >
-                  <Icon name="split" size={15} />
-                  中身を分解する
-                </button>
-              </>
-            ) : null}
-            {(
-              [
-                {
-                  label: '簡約 / Evaluate',
-                  icon: 'check',
-                  action: () => state.simplifyObject(menu.id),
-                },
-                {
-                  label: '分解 / Break apart',
-                  icon: 'split',
-                  action: () => state.breakApart(menu.id, bounds),
-                },
-                {
-                  label: '複製 / Duplicate',
-                  icon: 'copy',
-                  action: () => state.duplicate(menu.id, bounds),
-                },
-                { label: '削除 / Delete', icon: 'trash', action: () => state.remove(menu.id) },
-              ] as const
-            ).map((item) => (
-              <button
-                key={item.label}
-                role="menuitem"
-                onClick={() => {
-                  item.action();
+          {state.mode === 'challenges' && <ChallengePanel bounds={bounds} />}
+          {state.mode === 'sandbox' && state.domain === 'math' && !state.tutorialComplete && (
+            <Tutorial />
+          )}
+          {!state.scene.objects.length && !state.scene.grid && state.mode === 'sandbox' && (
+            <EmptyWorkspace
+              physics={state.domain === 'physics'}
+              tutorial={!state.tutorialComplete}
+            />
+          )}
+          {state.scene.grid && <Grid matrix={state.scene.grid} highlighted={target === '__grid'} />}
+          {state.domain === 'physics' && (
+            <PhysicsLayer
+              objects={state.scene.objects}
+              motions={motions}
+              trails={state.settings.trails}
+              challenge={state.mode === 'challenges' && state.activeChallenge === 10}
+              height={bounds.height}
+              selected={state.selected}
+            />
+          )}
+          <div className="workspace-crosshair corner-tl" />
+          <div className="workspace-crosshair corner-br" />
+          {state.scene.objects.map((object) => {
+            const d = drag?.sourceId === object.id && !drag.sourcePath && drag.moved ? drag : null;
+            const motion = object.body ? motions[object.id] : null;
+            const positioned = d
+              ? { ...object, x: d.x, y: d.y, node: d.node }
+              : motion
+                ? {
+                    ...object,
+                    x: object.x + motion.x * PHYSICS_SCALE,
+                    y: object.y - motion.y * PHYSICS_SCALE,
+                  }
+                : object;
+            return (
+              <WorldElement
+                key={object.id}
+                object={positioned}
+                selected={state.selected === object.id}
+                magnetic={target === object.id}
+                dragging={Boolean(d)}
+                displayNode={state.transitions[object.id]?.node}
+                busy={Boolean(state.transitions[object.id])}
+                selectedPart={
+                  state.selected === object.id ? encodePath(state.selectedPart ?? []) : undefined
+                }
+                targetPart={drop?.id === object.id ? encodePath(drop.path) : undefined}
+                onPartPointerDown={(e, path) => {
                   setMenu(null);
+                  setExponent(null);
+                  startPart(e, object, path);
                 }}
+                onPointerDown={(e) => {
+                  setMenu(null);
+                  setExponent(null);
+                  startObject(e, object.body ? positioned : object);
+                }}
+                onDoubleClick={() => state.simplifyObject(object.id)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  state.select(object.id);
+                  const partPath = decodePath(
+                    (e.target as Element)
+                      .closest('[data-node-path]')
+                      ?.getAttribute('data-node-path') ?? null,
+                  );
+                  if (partPath.length) state.selectPart(object.id, partPath);
+                  const r = stage.current!.getBoundingClientRect();
+                  setMenu({
+                    id: object.id,
+                    x: Math.max(12, Math.min(bounds.width - 210, e.clientX - r.left)),
+                    y: Math.max(55, Math.min(bounds.height - 210, e.clientY - r.top)),
+                  });
+                }}
+                onEndpoint={(e, endpoint) => startEndpoint(e, object, endpoint)}
+                onExponent={() => {
+                  state.select(object.id);
+                  setExponent(object.id);
+                }}
+              />
+            );
+          })}
+          {state.domain === 'physics' &&
+            state.scene.objects
+              .filter(
+                (o) => o.node.kind === 'quantity' && ['time', 'distance'].includes(o.node.quantity),
+              )
+              .map((o) => (
+                <div
+                  key={o.id}
+                  className="physics-measurement"
+                  style={{ left: o.x, top: o.y + 32 }}
+                >
+                  {o.node.kind === 'quantity' && o.node.quantity === 'time' ? (
+                    `${time.toFixed(2)} s`
+                  ) : (
+                    <>
+                      <span
+                        className="distance-ruler"
+                        style={{
+                          width:
+                            o.node.kind === 'quantity'
+                              ? Math.max(20, o.node.value * PHYSICS_SCALE)
+                              : 100,
+                        }}
+                      />
+                      {o.node.kind === 'quantity' ? o.node.value : 10} m
+                    </>
+                  )}
+                </div>
+              ))}
+          {drag && (!drag.sourceId || drag.sourcePath) && drag.moved && (
+            <WorldElement
+              object={{ id: 'drag-preview', node: drag.node, x: drag.x, y: drag.y }}
+              selected={false}
+              dragging
+              onPointerDown={() => {}}
+              onDoubleClick={() => {}}
+              onContextMenu={() => {}}
+            />
+          )}
+          {selected && !drag?.moved && (
+            <Inspector
+              key={selected.id}
+              object={selected}
+              motion={motions[selected.id]}
+              exponent={exponent === selected.id}
+              onCloseExponent={() => setExponent(null)}
+              bounds={bounds}
+            />
+          )}
+          {drag?.moved && drop && (
+            <div className="drop-preview" role="status">
+              <span>{drop.label}</span>
+              {drop.reaction && <MathText node={drop.reaction.result} />}
+              <small>離すと確定</small>
+            </div>
+          )}
+          {state.domain === 'physics' && (
+            <div className="simulation-controls">
+              <button
+                aria-label={state.running ? '一時停止' : '再生'}
+                className="simulation-play"
+                disabled={!state.scene.objects.some((o) => o.body)}
+                onClick={state.toggleRunning}
               >
-                <Icon name={item.icon} size={15} />
-                {item.label}
+                <Icon name={state.running ? 'pause' : 'play'} size={17} />
+                {state.running ? 'Pause' : 'Run'}
               </button>
-            ))}
+              {toolbarButton('reset', 'シミュレーションをリセット', state.resetSimulation)}
+              <span className="simulation-time">
+                {time.toFixed(2)} <small>s</small>
+              </span>
+              <button
+                className={`trail-toggle ${state.settings.trails ? 'active' : ''}`}
+                onClick={() => state.setSettings({ trails: !state.settings.trails })}
+              >
+                <span />
+                軌跡
+              </button>
+            </div>
+          )}
+          <div className="workspace-status">
+            <span className="status-dot" />
+            <span>{String(state.scene.objects.length).padStart(2, '0')} ELEMENTS</span>
+            <span className="status-divider">/</span>
+            <span>{state.storageError ? '保存できません' : 'LOCAL · AUTOSAVED'}</span>
           </div>
-        )}
-        {experiments && <Experiments bounds={bounds} onClose={() => setExperiments(false)} />}
-      </main>
-      <Tray onDrag={startTray} />
+          <div className="sound-control">
+            {toolbarButton(
+              state.settings.muted ? 'muted' : 'sound',
+              state.settings.muted ? 'サウンドをオン' : 'ミュート',
+              () => state.setSettings({ muted: !state.settings.muted }),
+            )}
+          </div>
+          {state.notice && (
+            <div className="reaction-notice" role="status">
+              {state.notice}
+            </div>
+          )}
+          {menu && (
+            <div
+              className="context-menu"
+              role="menu"
+              style={{ left: menu.x, top: menu.y }}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              {state.selected === menu.id && state.selectedPart?.length ? (
+                <>
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      state.extractPart(menu.id, state.selectedPart!, bounds);
+                      setMenu(null);
+                    }}
+                  >
+                    <Icon name="arrow" size={15} />
+                    中身を取り出す
+                  </button>
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      state.extractPart(menu.id, state.selectedPart!, bounds, undefined, true);
+                      setMenu(null);
+                    }}
+                  >
+                    <Icon name="split" size={15} />
+                    中身を分解する
+                  </button>
+                </>
+              ) : null}
+              {(
+                [
+                  {
+                    label: '簡約 / Evaluate',
+                    icon: 'check',
+                    action: () => state.simplifyObject(menu.id),
+                  },
+                  {
+                    label: '分解 / Break apart',
+                    icon: 'split',
+                    action: () => state.breakApart(menu.id, bounds),
+                  },
+                  {
+                    label: '複製 / Duplicate',
+                    icon: 'copy',
+                    action: () => state.duplicate(menu.id, bounds),
+                  },
+                  { label: '削除 / Delete', icon: 'trash', action: () => state.remove(menu.id) },
+                ] as const
+              ).map((item) => (
+                <button
+                  key={item.label}
+                  role="menuitem"
+                  onClick={() => {
+                    item.action();
+                    setMenu(null);
+                  }}
+                >
+                  <Icon name={item.icon} size={15} />
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          )}
+          {experiments && <Experiments bounds={bounds} onClose={() => setExperiments(false)} />}
+        </main>
+      </div>
       {help && <Help onClose={() => setHelp(false)} />}
     </>
   );

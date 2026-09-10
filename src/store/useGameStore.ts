@@ -7,7 +7,7 @@ import {
   type EquationOperation,
   type ReactionResult,
 } from '../engine/ReactionEngine';
-import { applyQuantity, defaultBody, type BodyConfig } from '../physics/model';
+import { applyQuantity, defaultBody, isBody, type BodyConfig } from '../physics/model';
 import { challenges } from '../challenges';
 import {
   emptyScene,
@@ -36,6 +36,9 @@ interface GameStore {
   future: Scene[];
   selected: string | null;
   selectedPart: ExpressionPath | null;
+  moveOnly: boolean;
+  setMoveOnly: (enabled: boolean) => void;
+  rotateObject: (id: string, degrees: number) => void;
   selectPart: (id: string, path: ExpressionPath) => void;
   settle: (id: string) => void;
   extractPart: (
@@ -103,6 +106,35 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   future: [],
   selected: null,
   selectedPart: null,
+  moveOnly: false,
+  setMoveOnly: (moveOnly) => set({ moveOnly, selectedPart: null }),
+  rotateObject: (id, degrees) => {
+    if (!Number.isFinite(degrees)) return;
+    const s = get(),
+      o = s.scene.objects.find((o) => o.id === id);
+    if (!o) return;
+    s.settle(id);
+    if (o.body) s.resetSimulation();
+    const a = (degrees * Math.PI) / 180;
+    const node =
+      o.node.kind === 'vector'
+        ? {
+            ...o.node,
+            x: Math.round((o.node.x * Math.cos(a) - o.node.y * Math.sin(a)) * 1e9) / 1e9,
+            y: Math.round((o.node.x * Math.sin(a) + o.node.y * Math.cos(a)) * 1e9) / 1e9,
+          }
+        : o.node.kind === 'quantity' &&
+            ['force', 'velocity', 'acceleration', 'wind'].includes(o.node.quantity)
+          ? { ...o.node, angle: ((((o.node.angle + degrees + 180) % 360) + 360) % 360) - 180 }
+          : o.node;
+    const rotation = node.kind === 'vector' ? 0 : ((o.rotation ?? 0) + degrees + 360) % 360;
+    s.commit({
+      ...s.scene,
+      objects: s.scene.objects.map((item) =>
+        item.id === id ? { ...item, node, rotation, vectorParts: undefined } : item,
+      ),
+    });
+  },
   settings: saved.settings,
   tutorialComplete: saved.tutorialComplete,
   tutorialStep: 0,
@@ -220,15 +252,10 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     if (!object) return;
     const updatedNode = node ?? object.node;
     if (object.body) s.resetSimulation();
-    const position =
-      updatedNode.kind === 'vector' || object.body
-        ? { x, y: object.body ? Math.min(y, bounds.height - 65) : y }
-        : freePosition(
-            updatedNode,
-            { x, y },
-            s.scene.objects.filter((o) => o.id !== id),
-            bounds,
-          );
+    const position = {
+      x: Math.max(24, Math.min(bounds.width - 24, x)),
+      y: Math.max(24, Math.min(bounds.height - (object.body ? 65 : 24), y)),
+    };
     if (
       Math.hypot(position.x - object.x, position.y - object.y) < 0.5 &&
       same(updatedNode, object.node)
@@ -387,6 +414,8 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   },
   updateBody: (id, patch) => {
     const s = get();
+    const body = s.scene.objects.find((o) => o.id === id)?.body;
+    if (!body || !isBody({ ...body, ...patch })) return;
     s.resetSimulation();
     s.commit({
       ...s.scene,
@@ -411,6 +440,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
     const s = get(),
       o = s.scene.objects.find((o) => o.id === id);
     if (!o) return;
+    if (o.body) s.resetSimulation();
     const copy = {
       ...structuredClone(o),
       id: uid(),
