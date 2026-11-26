@@ -1,0 +1,18 @@
+[package]
+name = "formula-playground"
+version = "0.1.0"
+edition = "2024"
+description = "A native mathematical physics playground"
+
+[[bin]]
+name = "formula-playground"
+path = "native/main.rs"
+
+[dependencies]
+macroquad = "0.4.16"
+
+[profile.release]
+strip = true
+lto = "thin"
+codegen-units = 1
+panic = "abort"
